@@ -12,10 +12,10 @@ workflows:
         APP_STORE_CONNECT_PRIVATE_KEY: |
           -----BEGIN PRIVATE KEY-----
           
-MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgrR0Z/ywh6uI+sAey
-tNOI/pmHkrJUUTD05MELlPcihb2gCgYIKoZIzj0DAQehRANCAARc6B3nu2e9qerZ
-CnQ49Gdmcz7cUd3Z+XIcSeTs1LMmb0Kk0ej7Rzp4CJO7Icbx5IBdxioaoaWMx+Hf
-vUS3OcGe
+          MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgrR0Z/ywh6uI+sAey
+          tNOI/pmHkrJUUTD05MELlPcihb2gCgYIKoZIzj0DAQehRANCAARc6B3nu2e9qerZ
+          CnQ49Gdmcz7cUd3Z+XIcSeTs1LMmb0Kk0ej7Rzp4CJO7Icbx5IBdxioaoaWMx+Hf
+          vUS3OcGe
           -----END PRIVATE KEY-----
       node: latest
       xcode: latest
