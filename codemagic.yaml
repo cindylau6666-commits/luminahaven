@@ -40,11 +40,24 @@ workflows:
           set -e
           keychain initialize
 
+          if [ -z "$APP_STORE_CONNECT_PRIVATE_KEY" ]; then
+            echo "ERROR: APP_STORE_CONNECT_PRIVATE_KEY is empty! Check Codemagic Environment variables -> app_store_credentials."
+            exit 1
+          fi
+
           RAW_KEY=$(printf "%s" "$APP_STORE_CONNECT_PRIVATE_KEY" | tr -d '\r')
-          BODY=$(echo "$RAW_KEY" | sed -e 's/-----BEGIN PRIVATE KEY-----//g' -e 's/-----END PRIVATE KEY-----//g' | tr -d '[:space:]')
+          echo "Private key length: ${#RAW_KEY}"
+
+          if printf "%s" "$RAW_KEY" | grep -q "BEGIN PRIVATE KEY"; then
+            BODY=$(printf "%s" "$RAW_KEY" | sed -e 's/-----BEGIN PRIVATE KEY-----//g' -e 's/-----END PRIVATE KEY-----//g' | tr -d '[:space:]')
+          else
+            BODY=$(printf "%s" "$RAW_KEY" | tr -d '[:space:]')
+          fi
+
           {
             echo "-----BEGIN PRIVATE KEY-----"
-            echo "$BODY" | fold -w 64
+            printf "%s" "$BODY" | fold -w 64
+            echo ""
             echo "-----END PRIVATE KEY-----"
           } > /tmp/auth_key.p8
           chmod 600 /tmp/auth_key.p8
@@ -113,5 +126,4 @@ workflows:
         api_key: $APP_STORE_CONNECT_PRIVATE_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true
-        
+        submit_to_testflight: true 
