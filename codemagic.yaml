@@ -87,14 +87,6 @@ workflows:
             -out /tmp/certs/dist_csr.pem
           chmod 600 /tmp/certs/dist_key.pem
 
-          app-store-connect certificates create \
-            --type IOS_DISTRIBUTION \
-            --csr-path /tmp/certs/dist_csr.pem \
-            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
-            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key "$KEY_STR" \
-            --certificates-dir /tmp/certs || true
-
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
