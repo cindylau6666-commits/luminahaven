@@ -11,7 +11,7 @@ workflows:
         APPLE_TEAM_ID: "P7L7NH2W5Z"
         APP_STORE_CONNECT_PRIVATE_KEY: |
           -----BEGIN PRIVATE KEY-----
-          在这里粘贴你的 .p8 密钥中间内容（每行前面留两个空格）
+          在这里粘贴你从记事本全选复制的完整 .p8 内容（每行前面留两个空格）
           -----END PRIVATE KEY-----
       node: latest
       xcode: latest
@@ -50,11 +50,17 @@ workflows:
           RAW_KEY=$(printf "%s" "$APP_STORE_CONNECT_PRIVATE_KEY" | tr -d '\r')
           echo "Private key length: ${#RAW_KEY}"
 
-          if printf "%s" "$RAW_KEY" | grep -q "BEGIN PRIVATE KEY"; then
-            BODY=$(printf "%s" "$RAW_KEY" | sed -e 's/-----BEGIN PRIVATE KEY-----//g' -e 's/-----END PRIVATE KEY-----//g' | tr -d '[:space:]')
-          else
-            BODY=$(printf "%s" "$RAW_KEY" | tr -d '[:space:]')
+          if [ "${#RAW_KEY}" -lt 150 ]; then
+            echo "ERROR: Private key looks truncated (length=${#RAW_KEY}). Please paste the full .p8 content."
+            exit 1
           fi
+
+          BODY=$(printf "%s" "$RAW_KEY" \
+            | sed -e 's/-----BEGIN PRIVATE KEY-----//g' \
+                  -e 's/-----END PRIVATE KEY-----//g' \
+                  -e 's/在这里粘贴你从记事本全选复制的.*//g' \
+                  -e 's/每行前面留两个空格.*//g' \
+            | tr -d '[:space:]')
 
           {
             echo "-----BEGIN PRIVATE KEY-----"
@@ -63,6 +69,11 @@ workflows:
             echo "-----END PRIVATE KEY-----"
           } > /tmp/auth_key.p8
           chmod 600 /tmp/auth_key.p8
+
+          openssl pkey -in /tmp/auth_key.p8 -noout || {
+            echo "ERROR: /tmp/auth_key.p8 failed openssl pkey validation"
+            exit 1
+          }
 
           mkdir -p /tmp/profiles
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
@@ -128,4 +139,4 @@ workflows:
         api_key: $APP_STORE_CONNECT_PRIVATE_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true 
+        submit_to_testflight: true
