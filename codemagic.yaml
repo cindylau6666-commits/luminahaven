@@ -1,0 +1,55 @@
+workflows:
+  ios-release:
+    name: LuminaHaven iOS Release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      vars:
+        BUNDLE_ID: "hotmail.com.Y2luZH.cindylau9999"
+        APP_STORE_CONNECT_ISSUER_ID: "69a6de8b-8081-47f3-93ce-2f606c923acd"
+        APP_STORE_CONNECT_KEY_IDENTIFIER: "LRZ3XGJ9Y9"
+        APPLE_TEAM_ID: "P7L7NH2W5Z"
+      groups:
+        - app_store_credentials
+      node: latest
+      xcode: latest
+    scripts:
+      - name: Initialize Capacitor iOS project
+        script: |
+          mkdir -p www
+          cp index.html www/index.html
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/ios
+          npx cap init LuminaHaven "$BUNDLE_ID" --web-dir www
+          npx cap add ios
+          npx cap copy ios
+      - name: Set up code signing and App Store Connect
+        script: |
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY" | base64 --decode > /tmp/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key @file:/tmp/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            --create
+          xcode-project use-profiles
+      - name: Build IPA for App Store
+        script: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath /tmp/LuminaHaven.xcarchive \
+            archive
+          xcodebuild -exportArchive \
+            -archivePath /tmp/LuminaHaven.xcarchive \
+            -exportOptionsPlist /Users/builder/export_options.plist \
+            -exportPath /tmp/ipa
+    artifacts:
+      - /tmp/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true 
