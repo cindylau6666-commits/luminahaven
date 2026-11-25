@@ -46,23 +46,19 @@ workflows:
             --private-key "$APP_STORE_CONNECT_PRIVATE_KEY" \
             --create
           keychain add-certificates
-          xcode-project use-profiles
+          xcode-project use-profiles --project "ios/App/App.xcodeproj"
       - name: Build IPA for App Store
         script: |
-          WORKSPACE_PATH=$(find ios -maxdepth 3 -name "*.xcworkspace" | head -n 1)
-          PROJECT_PATH=$(find ios -maxdepth 3 -name "*.xcodeproj" | head -n 1)
-          if [ -n "$WORKSPACE_PATH" ]; then
-            echo "Building workspace: $WORKSPACE_PATH"
+          if [ -d "ios/App/App.xcworkspace" ]; then
+            echo "Building workspace: ios/App/App.xcworkspace"
             xcode-project build-ipa \
-              --workspace "$WORKSPACE_PATH" \
-              --scheme "App" \
-              --archive-xcargs "DEVELOPMENT_TEAM=$APPLE_TEAM_ID"
+              --workspace "ios/App/App.xcworkspace" \
+              --scheme "App"
           else
-            echo "Building project: $PROJECT_PATH"
+            echo "Building project: ios/App/App.xcodeproj"
             xcode-project build-ipa \
-              --project "$PROJECT_PATH" \
-              --scheme "App" \
-              --archive-xcargs "DEVELOPMENT_TEAM=$APPLE_TEAM_ID"
+              --project "ios/App/App.xcodeproj" \
+              --scheme "App"
           fi
     artifacts:
       - build/ios/ipa/*.ipa
