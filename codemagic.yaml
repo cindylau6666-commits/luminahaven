@@ -39,12 +39,22 @@ workflows:
         script: |
           set -e
           keychain initialize
+
+          RAW_KEY=$(printf "%s" "$APP_STORE_CONNECT_PRIVATE_KEY" | tr -d '\r')
+          BODY=$(echo "$RAW_KEY" | sed -e 's/-----BEGIN PRIVATE KEY-----//g' -e 's/-----END PRIVATE KEY-----//g' | tr -d '[:space:]')
+          {
+            echo "-----BEGIN PRIVATE KEY-----"
+            echo "$BODY" | fold -w 64
+            echo "-----END PRIVATE KEY-----"
+          } > /tmp/auth_key.p8
+          chmod 600 /tmp/auth_key.p8
+
           mkdir -p /tmp/profiles
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key "$APP_STORE_CONNECT_PRIVATE_KEY" \
+            --private-key "@/tmp/auth_key.p8" \
             --profiles-path /tmp/profiles \
             --create
           keychain add-certificates
@@ -104,3 +114,4 @@ workflows:
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
+        
