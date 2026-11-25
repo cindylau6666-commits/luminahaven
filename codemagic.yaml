@@ -72,28 +72,49 @@ workflows:
           } > /tmp/auth_key.p8
           chmod 600 /tmp/auth_key.p8
 
-          echo "Checking /tmp/auth_key.p8 line count and header/footer:"
-          wc -l /tmp/auth_key.p8
-          head -n 1 /tmp/auth_key.p8
-          tail -n 1 /tmp/auth_key.p8
-
           openssl pkcs8 -topk8 -nocrypt -in /tmp/auth_key.p8 -out /tmp/auth_key_clean.p8 2>&1 || {
-            echo "ERROR: openssl pkcs8 rejected /tmp/auth_key.p8 — the base64 body itself is not a valid PKCS#8 private key."
+            echo "ERROR: openssl pkcs8 rejected /tmp/auth_key.p8"
             exit 1
           }
           chmod 600 /tmp/auth_key_clean.p8
 
           KEY_STR=$(cat /tmp/auth_key_clean.p8)
 
-          mkdir -p /tmp/profiles
+          mkdir -p /tmp/certs /tmp/profiles
+          openssl req -newkey rsa:2048 -nodes \
+            -keyout /tmp/certs/dist_key.pem \
+            -subj "/CN=LuminaHaven Distribution/O=LuminaHaven/C=CA" \
+            -out /tmp/certs/dist_csr.pem
+          chmod 600 /tmp/certs/dist_key.pem
+
+          app-store-connect certificates create \
+            --type IOS_DISTRIBUTION \
+            --csr-path /tmp/certs/dist_csr.pem \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key "$KEY_STR" \
+            --certificates-dir /tmp/certs || true
+
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             --private-key "$KEY_STR" \
+            --certificates-dir /tmp/certs \
             --profiles-dir /tmp/profiles \
             --create
-          keychain add-certificates
+
+          for cert in /tmp/certs/*.cer; do
+            [ -e "$cert" ] || continue
+            openssl x509 -inform DER -in "$cert" -out "${cert%.cer}.pem" 2>/dev/null || cp "$cert" "${cert%.cer}.pem"
+            openssl pkcs12 -export \
+              -inkey /tmp/certs/dist_key.pem \
+              -in "${cert%.cer}.pem" \
+              -out "${cert%.cer}.p12" \
+              -passout pass:codemagic
+          done
+
+          keychain add-certificates --certificate-password codemagic || keychain add-certificates
 
           PROFILE_FILE=$(ls -t /tmp/profiles/*.mobileprovision | head -n 1)
           PROFILE_UUID=$(security cms -D -i "$PROFILE_FILE" | plutil -extract UUID raw -)
