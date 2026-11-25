@@ -13,16 +13,29 @@ workflows:
         - app_store_credentials
       node: latest
       xcode: latest
+      cocoapods: default
     scripts:
       - name: Initialize Capacitor iOS project
         script: |
           mkdir -p www
           cp index.html www/index.html
-          npm init -y
+          cat << 'EOF' > package.json
+          {
+            "name": "luminahaven",
+            "version": "1.0.0",
+            "private": true
+          }
+          EOF
+          cat << EOF > capacitor.config.json
+          {
+            "appId": "$BUNDLE_ID",
+            "appName": "LuminaHaven",
+            "webDir": "www"
+          }
+          EOF
           npm install @capacitor/core @capacitor/cli @capacitor/ios
-          npx cap init LuminaHaven "$BUNDLE_ID" --web-dir www
           npx cap add ios
-          npx cap copy ios
+          npx cap sync ios
       - name: Set up code signing and App Store Connect
         script: |
           keychain initialize
@@ -36,9 +49,19 @@ workflows:
           xcode-project use-profiles
       - name: Build IPA for App Store
         script: |
-          xcode-project build-ipa \
-            --workspace "ios/App/App.xcworkspace" \
-            --scheme "App"
+          WORKSPACE_PATH=$(find ios -maxdepth 3 -name "*.xcworkspace" | head -n 1)
+          PROJECT_PATH=$(find ios -maxdepth 3 -name "*.xcodeproj" | head -n 1)
+          if [ -n "$WORKSPACE_PATH" ]; then
+            echo "Building workspace: $WORKSPACE_PATH"
+            xcode-project build-ipa \
+              --workspace "$WORKSPACE_PATH" \
+              --scheme "App"
+          else
+            echo "Building project: $PROJECT_PATH"
+            xcode-project build-ipa \
+              --project "$PROJECT_PATH" \
+              --scheme "App"
+          fi
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
