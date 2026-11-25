@@ -11,7 +11,11 @@ workflows:
         APPLE_TEAM_ID: "P7L7NH2W5Z"
         APP_STORE_CONNECT_PRIVATE_KEY: |
           -----BEGIN PRIVATE KEY-----
-          在这里粘贴你从记事本全选复制的完整 .p8 内容（每行前面留两个空格）
+          
+MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgrR0Z/ywh6uI+sAey
+tNOI/pmHkrJUUTD05MELlPcihb2gCgYIKoZIzj0DAQehRANCAARc6B3nu2e9qerZ
+CnQ49Gdmcz7cUd3Z+XIcSeTs1LMmb0Kk0ej7Rzp4CJO7Icbx5IBdxioaoaWMx+Hf
+vUS3OcGe
           -----END PRIVATE KEY-----
       node: latest
       xcode: latest
