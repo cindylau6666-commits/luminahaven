@@ -11,7 +11,6 @@ workflows:
         APPLE_TEAM_ID: "P7L7NH2W5Z"
         APP_STORE_CONNECT_PRIVATE_KEY: |
           -----BEGIN PRIVATE KEY-----
-          
           MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgrR0Z/ywh6uI+sAey
           tNOI/pmHkrJUUTD05MELlPcihb2gCgYIKoZIzj0DAQehRANCAARc6B3nu2e9qerZ
           CnQ49Gdmcz7cUd3Z+XIcSeTs1LMmb0Kk0ej7Rzp4CJO7Icbx5IBdxioaoaWMx+Hf
@@ -55,36 +54,41 @@ workflows:
           echo "Private key length: ${#RAW_KEY}"
 
           if [ "${#RAW_KEY}" -lt 150 ]; then
-            echo "ERROR: Private key looks truncated (length=${#RAW_KEY}). Please paste the full .p8 content."
+            echo "ERROR: Private key looks truncated (length=${#RAW_KEY})."
             exit 1
           fi
 
           BODY=$(printf "%s" "$RAW_KEY" \
             | sed -e 's/-----BEGIN PRIVATE KEY-----//g' \
                   -e 's/-----END PRIVATE KEY-----//g' \
-                  -e 's/在这里粘贴你从记事本全选复制的.*//g' \
+                  -e 's/在这里粘贴完整 .p8 内容.*//g' \
                   -e 's/每行前面留两个空格.*//g' \
             | tr -d '[:space:]')
 
           {
-            echo "-----BEGIN PRIVATE KEY-----"
+            printf -- "-----BEGIN PRIVATE KEY-----\n"
             printf "%s" "$BODY" | fold -w 64
-            echo ""
-            echo "-----END PRIVATE KEY-----"
+            printf -- "\n-----END PRIVATE KEY-----\n"
           } > /tmp/auth_key.p8
           chmod 600 /tmp/auth_key.p8
 
-          openssl pkey -in /tmp/auth_key.p8 -noout || {
-            echo "ERROR: /tmp/auth_key.p8 failed openssl pkey validation"
+          echo "Checking /tmp/auth_key.p8 line count and header/footer:"
+          wc -l /tmp/auth_key.p8
+          head -n 1 /tmp/auth_key.p8
+          tail -n 1 /tmp/auth_key.p8
+
+          openssl pkcs8 -topk8 -nocrypt -in /tmp/auth_key.p8 -out /tmp/auth_key_clean.p8 2>&1 || {
+            echo "ERROR: openssl pkcs8 rejected /tmp/auth_key.p8 — the base64 body itself is not a valid PKCS#8 private key."
             exit 1
           }
+          chmod 600 /tmp/auth_key_clean.p8
 
           mkdir -p /tmp/profiles
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key "@/tmp/auth_key.p8" \
+            --private-key "@/tmp/auth_key_clean.p8" \
             --profiles-path /tmp/profiles \
             --create
           keychain add-certificates
