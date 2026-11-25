@@ -9,8 +9,10 @@ workflows:
         APP_STORE_CONNECT_ISSUER_ID: "69a6de8b-8081-47f3-93ce-2f606c923acd"
         APP_STORE_CONNECT_KEY_IDENTIFIER: "LRZ3XGJ9Y9"
         APPLE_TEAM_ID: "P7L7NH2W5Z"
-      groups:
-        - app_store_credentials
+        APP_STORE_CONNECT_PRIVATE_KEY: |
+          -----BEGIN PRIVATE KEY-----
+          在这里粘贴你的 .p8 密钥中间内容（每行前面留两个空格）
+          -----END PRIVATE KEY-----
       node: latest
       xcode: latest
     scripts:
@@ -41,7 +43,7 @@ workflows:
           keychain initialize
 
           if [ -z "$APP_STORE_CONNECT_PRIVATE_KEY" ]; then
-            echo "ERROR: APP_STORE_CONNECT_PRIVATE_KEY is empty! Check Codemagic Environment variables -> app_store_credentials."
+            echo "ERROR: APP_STORE_CONNECT_PRIVATE_KEY is empty!"
             exit 1
           fi
 
