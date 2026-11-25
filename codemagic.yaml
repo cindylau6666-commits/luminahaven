@@ -25,31 +25,26 @@ workflows:
           npx cap copy ios
       - name: Set up code signing and App Store Connect
         script: |
-          echo "$APP_STORE_CONNECT_PRIVATE_KEY" | base64 --decode > /tmp/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key @file:/tmp/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            --private-key "$APP_STORE_CONNECT_PRIVATE_KEY" \
             --create
+          keychain add-certificates
           xcode-project use-profiles
       - name: Build IPA for App Store
         script: |
-          cd ios/App
-          xcodebuild -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -archivePath /tmp/LuminaHaven.xcarchive \
-            archive
-          xcodebuild -exportArchive \
-            -archivePath /tmp/LuminaHaven.xcarchive \
-            -exportOptionsPlist /Users/builder/export_options.plist \
-            -exportPath /tmp/ipa
+          xcode-project build-ipa \
+            --workspace "ios/App/App.xcworkspace" \
+            --scheme "App"
     artifacts:
-      - /tmp/ipa/*.ipa
+      - build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
         api_key: $APP_STORE_CONNECT_PRIVATE_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true 
+        submit_to_testflight: true
+Displaying 898.jpg.
