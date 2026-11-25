@@ -46,29 +46,26 @@ workflows:
             --private-key "$APP_STORE_CONNECT_PRIVATE_KEY" \
             --create
           keychain add-certificates
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp /Users/builder/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/ 2>/dev/null || true
-          FIRST_PROFILE=$(ls -t ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 2>/dev/null | head -n 1)
-          if [ -n "$FIRST_PROFILE" ]; then
-            PROFILE_NAME=$(security cms -D -i "$FIRST_PROFILE" | plutil -extract Name raw -)
-            echo "Found Profile: $PROFILE_NAME"
-            echo "PROFILE_NAME=$PROFILE_NAME" >> $CM_ENV
-          fi
           xcode-project use-profiles --project "ios/App/App.xcodeproj" || true
       - name: Build IPA for App Store
         script: |
-          XCARGS="DEVELOPMENT_TEAM=$APPLE_TEAM_ID CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=\"Apple Distribution\""
+          PROFILE_PATH=$(ls -t ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision /Users/builder/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 2>/dev/null | head -n 1 || true)
+          if [ -n "$PROFILE_PATH" ]; then
+            PROFILE_NAME=$(security cms -D -i "$PROFILE_PATH" 2>/dev/null | plutil -extract Name raw - 2>/dev/null || true)
+          fi
           if [ -n "$PROFILE_NAME" ]; then
-            XCARGS="$XCARGS PROVISIONING_PROFILE_SPECIFIER=\"$PROFILE_NAME\""
+            echo "Using provisioning profile: $PROFILE_NAME"
+            XCARGS="DEVELOPMENT_TEAM=$APPLE_TEAM_ID CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=\"$PROFILE_NAME\""
+          else
+            echo "Using team signing: $APPLE_TEAM_ID"
+            XCARGS="DEVELOPMENT_TEAM=$APPLE_TEAM_ID"
           fi
           if [ -d "ios/App/App.xcworkspace" ]; then
-            echo "Building workspace: ios/App/App.xcworkspace"
             xcode-project build-ipa \
               --workspace "ios/App/App.xcworkspace" \
               --scheme "App" \
               --archive-xcargs "$XCARGS"
           else
-            echo "Building project: ios/App/App.xcodeproj"
             xcode-project build-ipa \
               --project "ios/App/App.xcodeproj" \
               --scheme "App" \
