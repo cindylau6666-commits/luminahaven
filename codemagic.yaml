@@ -83,12 +83,14 @@ workflows:
           }
           chmod 600 /tmp/auth_key_clean.p8
 
+          KEY_CONTENT=$(cat /tmp/auth_key_clean.p8)
+
           mkdir -p /tmp/profiles
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key "@/tmp/auth_key_clean.p8" \
+            --private-key "$KEY_CONTENT" \
             --profiles-path /tmp/profiles \
             --create
           keychain add-certificates
