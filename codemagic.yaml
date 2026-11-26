@@ -94,15 +94,11 @@ workflows:
             -in /tmp/certs/dist_csr.pem \
             -signkey /tmp/certs/dist_key.pem \
             -out /tmp/certs/dist_cert.pem
-          openssl pkcs12 -export \
-            -inkey /tmp/certs/dist_key.pem \
-            -in /tmp/certs/dist_cert.pem \
-            -out /tmp/certs/dist_cert.p12 \
-            -passout pass:codemagic
-          chmod 600 /tmp/certs/dist_key.pem /tmp/certs/dist_cert.p12
+          chmod 600 /tmp/certs/dist_key.pem
 
           DEFAULT_KEYCHAIN=$(security default-keychain | tr -d '"' | xargs)
-          security import /tmp/certs/dist_cert.p12 -k "$DEFAULT_KEYCHAIN" -P codemagic -T /usr/bin/codesign -T /usr/bin/security
+          security import /tmp/certs/dist_key.pem -k "$DEFAULT_KEYCHAIN" -T /usr/bin/codesign -T /usr/bin/security
+          security import /tmp/certs/dist_cert.pem -k "$DEFAULT_KEYCHAIN" -T /usr/bin/codesign -T /usr/bin/security
 
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
