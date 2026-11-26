@@ -6,7 +6,7 @@ workflows:
     environment:
       vars:
         BUNDLE_ID: "hotmail.com.Y2luZH.cindylau9999"
-        APP_STORE_CONNECT_ISSUER_ID: "69a6de8b-8081-47f3-93ce-2f606c923acd"
+        APP_STORE_CONNECT_ISSUER_ID: "9f90852b-806f-47fd-8dce-2f66fc923acf"
         APP_STORE_CONNECT_KEY_IDENTIFIER: "LRZ3XGJ9Y9"
         APPLE_TEAM_ID: "P7L7NH2W5Z"
         APP_STORE_CONNECT_PRIVATE_KEY: |
