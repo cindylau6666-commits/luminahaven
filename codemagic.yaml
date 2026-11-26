@@ -101,20 +101,24 @@ workflows:
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             --private-key "$KEY_STR" \
             --profiles-dir /tmp/profiles \
-            --create || true
+            --create
 
-          keychain add-certificates || true
+          keychain add-certificates
 
-          PROFILE_FILE=$(ls -t /tmp/profiles/*.mobileprovision 2>/dev/null | head -n 1 || true)
-          if [ -n "$PROFILE_FILE" ]; then
-            PROFILE_UUID=$(security cms -D -i "$PROFILE_FILE" | plutil -extract UUID raw -)
-            PROFILE_NAME=$(security cms -D -i "$PROFILE_FILE" | plutil -extract Name raw -)
-            echo "Resolved Profile UUID: $PROFILE_UUID"
-            echo "Resolved Profile Name: $PROFILE_NAME"
-            mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
-            cp "$PROFILE_FILE" "$HOME/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
-            cp "$PROFILE_FILE" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
+          PROFILE_FILE=$(ls -t /tmp/profiles/*.mobileprovision | head -n 1)
+          if [ -z "$PROFILE_FILE" ]; then
+            echo "ERROR: No .mobileprovision file downloaded to /tmp/profiles"
+            exit 1
           fi
+
+          PROFILE_UUID=$(security cms -D -i "$PROFILE_FILE" | plutil -extract UUID raw -)
+          PROFILE_NAME=$(security cms -D -i "$PROFILE_FILE" | plutil -extract Name raw -)
+          echo "Resolved Profile UUID: $PROFILE_UUID"
+          echo "Resolved Profile Name: $PROFILE_NAME"
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          cp "$PROFILE_FILE" "$HOME/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
+          cp "$PROFILE_FILE" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
 
           mkdir -p build/ios/archive build/ios/ipa
 
@@ -127,6 +131,7 @@ workflows:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE="Manual" \
             CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE="$PROFILE_UUID" \
             PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME"
 
           cat << EOF > /tmp/ExportOptions.plist
