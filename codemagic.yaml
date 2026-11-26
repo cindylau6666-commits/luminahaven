@@ -88,12 +88,21 @@ workflows:
           mkdir -p /tmp/certs /tmp/profiles
           openssl req -newkey rsa:2048 -nodes \
             -keyout /tmp/certs/dist_key.pem \
-            -subj "/CN=LuminaHaven Distribution/O=LuminaHaven/C=CA" \
+            -subj "/CN=Apple Distribution: LuminaHaven/OU=${APPLE_TEAM_ID}/O=LuminaHaven/C=CA" \
             -out /tmp/certs/dist_csr.pem
-          chmod 600 /tmp/certs/dist_key.pem
+          openssl x509 -req -days 365 \
+            -in /tmp/certs/dist_csr.pem \
+            -signkey /tmp/certs/dist_key.pem \
+            -out /tmp/certs/dist_cert.pem
+          openssl pkcs12 -export \
+            -inkey /tmp/certs/dist_key.pem \
+            -in /tmp/certs/dist_cert.pem \
+            -out /tmp/certs/dist_cert.p12 \
+            -passout pass:codemagic
+          chmod 600 /tmp/certs/dist_key.pem /tmp/certs/dist_cert.p12
 
           DEFAULT_KEYCHAIN=$(security default-keychain | tr -d '"' | xargs)
-          security import /tmp/certs/dist_key.pem -k "$DEFAULT_KEYCHAIN" -T /usr/bin/codesign -T /usr/bin/security || true
+          security import /tmp/certs/dist_cert.p12 -k "$DEFAULT_KEYCHAIN" -P codemagic -T /usr/bin/codesign -T /usr/bin/security
 
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
@@ -101,11 +110,9 @@ workflows:
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             --private-key "$KEY_STR" \
             --profiles-dir /tmp/profiles \
-            --create
+            --create || true
 
-          keychain add-certificates
-
-          PROFILE_FILE=$(ls -t /tmp/profiles/*.mobileprovision | head -n 1)
+          PROFILE_FILE=$(ls -t /tmp/profiles/*.mobileprovision 2>/dev/null | head -n 1 || true)
           if [ -z "$PROFILE_FILE" ]; then
             echo "ERROR: No .mobileprovision file downloaded to /tmp/profiles"
             exit 1
