@@ -83,26 +83,24 @@ workflows:
           cp /tmp/auth_key_clean.p8 "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
           chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
 
-          KEY_STR=$(cat /tmp/auth_key_clean.p8)
-
           echo "=== Checking App Store Connect Certificates ==="
           app-store-connect certificates list \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key "$KEY_STR" || true
+            --private-key-path "/tmp/auth_key_clean.p8" || true
 
           echo "=== Checking App Store Connect Profiles ==="
           app-store-connect profiles list \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key "$KEY_STR" || true
+            --private-key-path "/tmp/auth_key_clean.p8" || true
 
           mkdir -p /tmp/profiles
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key "$KEY_STR" \
+            --private-key-path "/tmp/auth_key_clean.p8" \
             --profiles-dir /tmp/profiles \
             --create || true
 
