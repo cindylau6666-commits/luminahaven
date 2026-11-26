@@ -83,27 +83,6 @@ workflows:
           cp /tmp/auth_key_clean.p8 "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
           chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
 
-          KEY_STR=$(cat /tmp/auth_key_clean.p8)
-
-          mkdir -p /tmp/profiles
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
-            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key "$KEY_STR" \
-            --profiles-dir /tmp/profiles || true
-
-          keychain add-certificates || true
-
-          PROFILE_FILE=$(ls -t /tmp/profiles/*.mobileprovision 2>/dev/null | head -n 1 || true)
-          if [ -n "$PROFILE_FILE" ]; then
-            PROFILE_UUID=$(security cms -D -i "$PROFILE_FILE" | plutil -extract UUID raw -)
-            echo "Resolved Profile UUID: $PROFILE_UUID"
-            mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
-            cp "$PROFILE_FILE" "$HOME/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
-            cp "$PROFILE_FILE" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
-          fi
-
           mkdir -p build/ios/archive build/ios/ipa
 
           xcodebuild -project "ios/App/App.xcodeproj" \
@@ -111,6 +90,10 @@ workflows:
             -configuration Release \
             -sdk iphoneos \
             -archivePath "build/ios/archive/App.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "/tmp/auth_key_clean.p8" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             archive \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE="Automatic"
@@ -133,7 +116,11 @@ workflows:
           xcodebuild -exportArchive \
             -archivePath "build/ios/archive/App.xcarchive" \
             -exportOptionsPlist "/tmp/ExportOptions.plist" \
-            -exportPath "build/ios/ipa"
+            -exportPath "build/ios/ipa" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "/tmp/auth_key_clean.p8" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
