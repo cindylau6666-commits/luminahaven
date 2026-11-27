@@ -90,10 +90,6 @@ workflows:
             -configuration Release \
             -sdk iphoneos \
             -archivePath "build/ios/archive/App.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "/tmp/auth_key_clean.p8" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             archive \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE="Automatic"
@@ -109,8 +105,6 @@ workflows:
             <string>$APPLE_TEAM_ID</string>
             <key>signingStyle</key>
             <string>automatic</string>
-            <key>signingCertificate</key>
-            <string>Apple Distribution</string>
           </dict>
           </plist>
           EOF
@@ -118,11 +112,7 @@ workflows:
           xcodebuild -exportArchive \
             -archivePath "build/ios/archive/App.xcarchive" \
             -exportOptionsPlist "/tmp/ExportOptions.plist" \
-            -exportPath "build/ios/ipa" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "/tmp/auth_key_clean.p8" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+            -exportPath "build/ios/ipa"
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
