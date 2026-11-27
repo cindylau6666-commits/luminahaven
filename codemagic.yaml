@@ -96,7 +96,8 @@ workflows:
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             archive \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE="Automatic"
+            CODE_SIGN_STYLE="Automatic" \
+            CODE_SIGN_IDENTITY="Apple Distribution"
 
           cat << EOF > /tmp/ExportOptions.plist
           <?xml version="1.0" encoding="UTF-8"?>
@@ -109,6 +110,8 @@ workflows:
             <string>$APPLE_TEAM_ID</string>
             <key>signingStyle</key>
             <string>automatic</string>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
           </dict>
           </plist>
           EOF
