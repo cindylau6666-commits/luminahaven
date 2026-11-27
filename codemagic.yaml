@@ -46,24 +46,10 @@ workflows:
           set -e
           keychain initialize
 
-          if [ -z "$APP_STORE_CONNECT_PRIVATE_KEY" ]; then
-            echo "ERROR: APP_STORE_CONNECT_PRIVATE_KEY is empty!"
-            exit 1
-          fi
-
           RAW_KEY=$(printf "%s" "$APP_STORE_CONNECT_PRIVATE_KEY" | tr -d '\r')
-          echo "Private key length: ${#RAW_KEY}"
-
-          if [ "${#RAW_KEY}" -lt 150 ]; then
-            echo "ERROR: Private key looks truncated (length=${#RAW_KEY})."
-            exit 1
-          fi
-
           BODY=$(printf "%s" "$RAW_KEY" \
             | sed -e 's/-----BEGIN PRIVATE KEY-----//g' \
                   -e 's/-----END PRIVATE KEY-----//g' \
-                  -e 's/在这里粘贴完整 .p8 内容.*//g' \
-                  -e 's/每行前面留两个空格.*//g' \
             | tr -d '[:space:]')
 
           {
@@ -73,46 +59,26 @@ workflows:
           } > /tmp/auth_key.p8
           chmod 600 /tmp/auth_key.p8
 
-          openssl pkcs8 -topk8 -nocrypt -in /tmp/auth_key.p8 -out /tmp/auth_key_clean.p8 2>&1 || {
-            echo "ERROR: openssl pkcs8 rejected /tmp/auth_key.p8"
-            exit 1
-          }
+          openssl pkcs8 -topk8 -nocrypt -in /tmp/auth_key.p8 -out /tmp/auth_key_clean.p8
           chmod 600 /tmp/auth_key_clean.p8
 
-          mkdir -p "$HOME/.appstoreconnect/private_keys"
-          cp /tmp/auth_key_clean.p8 "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
-          chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
+          openssl genrsa -out /tmp/cert_private_key.pem 2048
+          chmod 600 /tmp/cert_private_key.pem
 
-          mkdir -p build/ios/archive build/ios/ipa
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key "@file:/tmp/auth_key_clean.p8" \
+            --certificate-key "@file:/tmp/cert_private_key.pem" \
+            --create
 
-          xcodebuild -project "ios/App/App.xcodeproj" \
-            -scheme "App" \
-            -configuration Release \
-            -sdk iphoneos \
-            -archivePath "build/ios/archive/App.xcarchive" \
-            archive \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE="Automatic"
+          keychain add-certificates
+          xcode-project use-profiles --project "ios/App/App.xcodeproj"
 
-          cat << EOF > /tmp/ExportOptions.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store-connect</string>
-            <key>teamID</key>
-            <string>$APPLE_TEAM_ID</string>
-            <key>signingStyle</key>
-            <string>automatic</string>
-          </dict>
-          </plist>
-          EOF
-
-          xcodebuild -exportArchive \
-            -archivePath "build/ios/archive/App.xcarchive" \
-            -exportOptionsPlist "/tmp/ExportOptions.plist" \
-            -exportPath "build/ios/ipa"
+          xcode-project build-ipa \
+            --project "ios/App/App.xcodeproj" \
+            --scheme "App"
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
