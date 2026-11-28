@@ -1,300 +1,89 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>LuminaHaven</title>
-  <style>
-    :root {
-      --bg-top: #090d1e;
-      --bg-bottom: #182346;
-      --text-main: #f4f7ff;
-      --text-muted: #a7b4d6;
-      --accent: #8ab4f8;
-      --glow: rgba(138, 180, 248, 0.28);
-      --card-bg: rgba(255, 255, 255, 0.06);
-      --border: rgba(255, 255, 255, 0.14);
-    }
+workflows:
+  ios-release:
+    name: LuminaHaven iOS Release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      vars:
+        BUNDLE_ID: "hotmail.com.Y2luZH.cindylau9999"
+        APP_STORE_CONNECT_ISSUER_ID: "9f90852b-806f-47fd-8dce-2f66fc923acf"
+        APP_STORE_CONNECT_KEY_IDENTIFIER: "LRZ3XGJ9Y9"
+        APPLE_TEAM_ID: "P7L7NH2W5Z"
+        APP_STORE_CONNECT_PRIVATE_KEY: |
+          -----BEGIN PRIVATE KEY-----
+          MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgrR0Z/ywh6uI+sAey
+          tNOI/pmHkrJUUTD05MELlPcihb2gCgYIKoZIzj0DAQehRANCAARc6B3nu2e9qerZ
+          CnQ49Gdmcz7cUd3Z+XIcSeTs1LMmb0Kk0ej7Rzp4CJO7Icbx5IBdxioaoaWMx+Hf
+          vUS3OcGe
+          -----END PRIVATE KEY-----
+      node: latest
+      xcode: latest
+    scripts:
+      - name: Initialize Capacitor iOS project
+        script: |
+          set -e
+          mkdir -p www
+          cp index.html www/index.html
+          cat << 'EOF' > package.json
+          {
+            "name": "luminahaven",
+            "version": "1.0.0",
+            "private": true
+          }
+          EOF
+          cat << EOF > capacitor.config.json
+          {
+            "appId": "$BUNDLE_ID",
+            "appName": "LuminaHaven",
+            "webDir": "www"
+          }
+          EOF
+          npm install @capacitor/core @capacitor/cli @capacitor/ios
+          npx cap add ios
+          npx cap copy ios
+      - name: Set up code signing and build IPA
+        script: |
+          set -e
+          keychain initialize
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
+          RAW_KEY=$(printf "%s" "$APP_STORE_CONNECT_PRIVATE_KEY" | tr -d '\r')
+          BODY=$(printf "%s" "$RAW_KEY" \
+            | sed -e 's/-----BEGIN PRIVATE KEY-----//g' \
+                  -e 's/-----END PRIVATE KEY-----//g' \
+            | tr -d '[:space:]')
 
-    body {
-      min-height: 100vh;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-      color: var(--text-main);
-      background: radial-gradient(circle at 50% 18%, var(--bg-bottom) 0%, var(--bg-top) 75%);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
-      overflow-x: hidden;
-    }
+          {
+            printf -- "-----BEGIN PRIVATE KEY-----\n"
+            printf "%s" "$BODY" | fold -w 64
+            printf -- "\n-----END PRIVATE KEY-----\n"
+          } > /tmp/auth_key.p8
+          chmod 600 /tmp/auth_key.p8
 
-    .stars {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 0;
-    }
+          openssl pkcs8 -topk8 -nocrypt -in /tmp/auth_key.p8 -out /tmp/auth_key_clean.p8
+          chmod 600 /tmp/auth_key_clean.p8
 
-    .star {
-      position: absolute;
-      width: 2px;
-      height: 2px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.75);
-      animation: twinkle 4s infinite ease-in-out;
-    }
+          openssl genrsa -out /tmp/cert_private_key.pem 2048
+          chmod 600 /tmp/cert_private_key.pem
 
-    @keyframes twinkle {
-      0%, 100% { opacity: 0.25; transform: scale(1); }
-      50% { opacity: 0.9; transform: scale(1.35); }
-    }
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key "@file:/tmp/auth_key_clean.p8" \
+            --certificate-key "@file:/tmp/cert_private_key.pem" \
+            --create
 
-    header, main, footer {
-      position: relative;
-      z-index: 1;
-      max-width: 520px;
-      width: 100%;
-      margin: 0 auto;
-    }
+          keychain add-certificates
+          xcode-project use-profiles --project "ios/App/App.xcodeproj"
 
-    header {
-      text-align: center;
-      margin-top: 8px;
-    }
-
-    .brand {
-      font-size: 1.5rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-    }
-
-    .subtitle {
-      margin-top: 6px;
-      font-size: 0.92rem;
-      color: var(--text-muted);
-    }
-
-    main {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 24px;
-      margin: 28px auto;
-    }
-
-    .breath-stage {
-      width: 220px;
-      height: 220px;
-      border-radius: 50%;
-      background: radial-gradient(circle, var(--glow) 0%, rgba(138, 180, 248, 0.05) 70%);
-      border: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      transition: transform 4s ease-in-out, box-shadow 4s ease-in-out;
-      box-shadow: 0 0 40px var(--glow);
-      cursor: pointer;
-    }
-
-    .breath-stage.inhale {
-      transform: scale(1.12);
-      box-shadow: 0 0 64px rgba(138, 180, 248, 0.42);
-    }
-
-    .breath-stage.exhale {
-      transform: scale(0.92);
-      box-shadow: 0 0 24px rgba(138, 180, 248, 0.16);
-    }
-
-    .phase-label {
-      font-size: 1.15rem;
-      font-weight: 500;
-      letter-spacing: 0.03em;
-    }
-
-    .phase-hint {
-      margin-top: 6px;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-
-    .mood-row {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .mood-btn {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      color: var(--text-main);
-      padding: 9px 14px;
-      border-radius: 999px;
-      font-size: 0.86rem;
-      cursor: pointer;
-      transition: background 0.2s ease, border-color 0.2s ease;
-    }
-
-    .mood-btn.active {
-      background: rgba(138, 180, 248, 0.22);
-      border-color: var(--accent);
-    }
-
-    .note-card {
-      width: 100%;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 16px 18px;
-      font-size: 0.9rem;
-      line-height: 1.55;
-      color: var(--text-main);
-      text-align: center;
-    }
-
-    footer {
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .support-link {
-      color: var(--text-muted);
-      font-size: 0.82rem;
-      text-decoration: none;
-      border-bottom: 1px dashed rgba(167, 180, 214, 0.45);
-      padding-bottom: 2px;
-    }
-
-    .support-link:hover {
-      color: var(--text-main);
-    }
-
-    .legal {
-      font-size: 0.75rem;
-      color: rgba(167, 180, 214, 0.65);
-    }
-  </style>
-</head>
-<body>
-  <div class="stars" id="stars"></div>
-
-  <header>
-    <div class="brand">LuminaHaven</div>
-    <div class="subtitle">A quiet space to breathe, unwind, and reset</div>
-  </header>
-
-  <main>
-    <div class="breath-stage" id="breathStage" role="button" tabindex="0" aria-label="Toggle breathing guide">
-      <div class="phase-label" id="phaseLabel">Tap to Begin</div>
-      <div class="phase-hint" id="phaseHint">4s Inhale · 4s Hold · 6s Exhale</div>
-    </div>
-
-    <div class="mood-row" id="moodRow">
-      <button class="mood-btn active" data-msg="You do not have to solve everything tonight. One slow breath is enough.">Calm</button>
-      <button class="mood-btn" data-msg="Let your shoulders drop away from your ears. The day can wait.">Unwind</button>
-      <button class="mood-btn" data-msg="Rest is not earned by exhaustion; you are allowed to pause.">Rest</button>
-      <button class="mood-btn" data-msg="Soft light ahead. Take this moment at your own pace.">Hopeful</button>
-    </div>
-
-    <div class="note-card" id="noteCard">
-      You do not have to solve everything tonight. One slow breath is enough.
-    </div>
-  </main>
-
-  <footer>
-    <a class="support-link" id="supportLink" href="#support" onclick="handleSupportClick(event)">
-      Send a gentle spark of support
-    </a>
-    <div class="legal">Free forever · No ads · No subscriptions</div>
-  </footer>
-
-  <script>
-    const starsContainer = document.getElementById("stars");
-    for (let i = 0; i < 36; i++) {
-      const star = document.createElement("div");
-      star.className = "star";
-      star.style.left = `${Math.random() * 100}%`;
-      star.style.top = `${Math.random() * 75}%`;
-      star.style.animationDelay = `${(Math.random() * 4).toFixed(2)}s`;
-      starsContainer.appendChild(star);
-    }
-
-    const breathStage = document.getElementById("breathStage");
-    const phaseLabel = document.getElementById("phaseLabel");
-    const phaseHint = document.getElementById("phaseHint");
-    const noteCard = document.getElementById("noteCard");
-    const moodButtons = document.querySelectorAll(".mood-btn");
-
-    let running = false;
-    let cycleTimer = null;
-    let stepTimer = null;
-
-    const phases = [
-      { label: "Breathe In", hint: "4 seconds", duration: 4000, cls: "inhale" },
-      { label: "Hold Gently", hint: "4 seconds", duration: 4000, cls: "inhale" },
-      { label: "Breathe Out", hint: "6 seconds", duration: 6000, cls: "exhale" }
-    ];
-
-    function runCycle(index = 0) {
-      if (!running) return;
-      const current = phases[index % phases.length];
-      phaseLabel.textContent = current.label;
-      phaseHint.textContent = current.hint;
-      breathStage.classList.remove("inhale", "exhale");
-      breathStage.classList.add(current.cls);
-
-      stepTimer = setTimeout(() => {
-        runCycle(index + 1);
-      }, current.duration);
-    }
-
-    function toggleBreathing() {
-      running = !running;
-      clearTimeout(stepTimer);
-      clearTimeout(cycleTimer);
-
-      if (running) {
-        runCycle(0);
-      } else {
-        breathStage.classList.remove("inhale", "exhale");
-        phaseLabel.textContent = "Paused";
-        phaseHint.textContent = "Tap again whenever you are ready";
-      }
-    }
-
-    breathStage.addEventListener("click", toggleBreathing);
-    breathStage.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        toggleBreathing();
-      }
-    });
-
-    moodButtons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        moodButtons.forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        noteCard.textContent = btn.dataset.msg;
-      });
-    });
-
-    function handleSupportClick(event) {
-      event.preventDefault();
-      noteCard.textContent = "Thank you for the warm light. LuminaHaven remains completely free for everyone.";
-    }
-  </script>
-</body>
-</html>
+          xcode-project build-ipa \
+            --project "ios/App/App.xcodeproj" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
